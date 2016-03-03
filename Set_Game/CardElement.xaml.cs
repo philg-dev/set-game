@@ -21,13 +21,6 @@ namespace Set_Game
         rect = 3
     }
 
-    public enum ElementColor
-    {
-        orange = 1,
-        blue = 2,
-        white = 3
-    }
-
     public enum ElementFill
     {
         empty = 1,
@@ -42,10 +35,12 @@ namespace Set_Game
     /// </summary>
     public partial class CardElement : UserControl
     {
-        ElementShape shape;
-        ElementColor color;
-        ElementFill fill;
 
+        /// <summary>
+        /// Generates a LinearGradientBrush of the given color which is striped.
+        /// </summary>
+        /// <param name="color">The desired color of the stripes</param>
+        /// <returns>The LinearGradientBrush.</returns>
         private LinearGradientBrush getGradientBrush(Color color) {
             LinearGradientBrush brush = new LinearGradientBrush();
             brush.StartPoint = new Point(0, 0);
@@ -54,12 +49,12 @@ namespace Set_Game
             GradientStopCollection stopCollection = new GradientStopCollection();
             stopCollection.Add(new GradientStop(color, 0));
             stopCollection.Add(new GradientStop(color, 0.5));
-            stopCollection.Add(new GradientStop(Color.FromArgb(0,0,0,0), 0.5));
+            stopCollection.Add(new GradientStop(Color.FromArgb(0, 0, 0, 0), 0.5));
             stopCollection.Add(new GradientStop(Color.FromArgb(0, 0, 0, 0), 1));
 
             brush.GradientStops = stopCollection;
 
-            brush.RelativeTransform = new ScaleTransform(0.1, 0.1);
+            brush.RelativeTransform = new ScaleTransform(Settings.StripeDistance, Settings.StripeDistance);
             return brush;
         }
 
@@ -69,64 +64,47 @@ namespace Set_Game
         /// <param name="shape">Desired shape.</param>
         /// <param name="color">Desired color.</param>
         /// <param name="fill">Desired fill.</param>
-        public CardElement(ElementShape shape, ElementColor color, ElementFill fill)
+        public CardElement(ElementShape shape, Color color, ElementFill fill)
         {
             InitializeComponent();
-            this.shape = shape;
-            this.color = color;
-            this.fill = fill;
 
             switch (shape)
             {
-                case ElementShape.bolt: break;
+                case ElementShape.bolt: 
+                    // in XAML
+                    break;
                 case ElementShape.rect:
-                    //Polygon = new Polygon();
                     Polygon.Points.Clear();
                     Polygon.Points.Add(new Point(0, 5));
                     Polygon.Points.Add(new Point(140, 5));
                     Polygon.Points.Add(new Point(140, 75));
                     Polygon.Points.Add(new Point(0, 75));
-                    Polygon.StrokeThickness = 2;
                     break;
                 case ElementShape.rhombus:
-                    //Polygon = new Polygon();
                     Polygon.Points.Clear();
                     Polygon.Points.Add(new Point(0,35));
                     Polygon.Points.Add(new Point(70,0));
                     Polygon.Points.Add(new Point(140,35));
                     Polygon.Points.Add(new Point(70,70));
                     Polygon.Points.Add(new Point(0,35));
-                    Polygon.StrokeThickness = 2;
                     break;
             }
 
-            var elementColor = new SolidColorBrush(getColor(color));
+            Polygon.StrokeThickness = Settings.CardElementStrokeThickness;
+
+            var elementColor = new SolidColorBrush(color);
             this.Polygon.Stroke = elementColor;
             switch (fill)
             {
                 case ElementFill.empty: Polygon.Fill = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)); break;
                 case ElementFill.filled: Polygon.Fill = elementColor; break;
                 case ElementFill.striped:
-                    Polygon.Fill = getGradientBrush(getColor(color));
+                    Polygon.Fill = getGradientBrush(color);
                     break;
             }
 
-            this.LayoutTransform = new ScaleTransform(0.9, 0.9);
+            this.LayoutTransform = new ScaleTransform(Settings.CardElementSizeFactor, Settings.CardElementSizeFactor);
         }
 
-        public CardElement()
-        {
-            InitializeComponent();
-        }
-
-        static Color getColor(ElementColor color) {
-            switch (color)
-            {
-                case ElementColor.blue:   return Color.FromArgb(255, 0, 0, 255);
-                case ElementColor.orange: return Color.FromArgb(0xFF,0xEE, 0x4D, 0x2E);
-                case ElementColor.white:  return Colors.White;
-            }
-            throw new ArgumentException("Invalid color.");
-        }
     }
 }

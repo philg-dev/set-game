@@ -12,9 +12,9 @@
             </Rectangle.Fill>
         </Rectangle>
         <Grid HorizontalAlignment="Left" Height="260" Margin="20,20,0,0" VerticalAlignment="Top" Width="160">
-            <StackPanel Name="ElementGrid" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <WrapPanel Name="ElementGrid" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
 
-            </StackPanel>
+            </WrapPanel>
 
         </Grid>
 

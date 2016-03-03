@@ -20,24 +20,53 @@ namespace Set_Game
     /// </summary>
     public partial class GameCard : UserControl
     {
-
         private int elements = 0;
+        /// <summary>
+        /// The amount of the GameCard's CardElements.
+        /// </summary>
         public int Elements { get { return elements; } }
         private ElementShape shape;
+        /// <summary>
+        /// The shape of the GameCard's CardElements.
+        /// </summary>
         public ElementShape Shape { get { return shape; } }
-        private ElementColor color;
-        public ElementColor ElemColor { get { return color; } }
+        private Color color;
+        /// <summary>
+        /// The color of the GameCard's CardElements.
+        /// </summary>
+        public Color ElemColor { get { return color; } }
         private ElementFill fill;
+        /// <summary>
+        /// The fill-type of the GameCard's CardElements.
+        /// </summary>
         public ElementFill Fill { get { return fill; } }
+        /// <summary>
+        /// Indicates whether the GameCard is in the state of disappearing.
+        /// </summary>
         private bool disappearing = false;
+        private bool highlighted = false;
+        /// <summary>
+        /// Indicartes whether the GameCard is highlighted.
+        /// </summary>
+        public bool Highlighted { get { return highlighted; } }
+        /// <summary>
+        /// The Controller object that created this GameCard.
+        /// </summary>
+        private Controller controller;
 
-        Controller controller;
-
-        public GameCard(Controller controller, int elementCount, ElementShape shape, ElementColor color, ElementFill fill) {
+        /// <summary>
+        /// Creates a new GameCard object.
+        /// </summary>
+        /// <param name="controller">The controller object that calls this constructor.</param>
+        /// <param name="elementCount">The amount of elements on the card.</param>
+        /// <param name="shape">The shape-type of the card's elements.</param>
+        /// <param name="color">The color of the card's elements.</param>
+        /// <param name="fill">The fill-type of the card's elements.</param>
+        public GameCard(Controller controller, int elementCount, ElementShape shape, Color color, ElementFill fill) {
             InitializeComponent();
-            fillBrush.Color = Color.FromArgb(255, 51, 51, 51);
+            fillBrush.Color = Settings.GameCardBackgroundColor;
             this.controller = controller;
-            if(elementCount < 1 || elementCount > 3)
+            if (elementCount < 1 || elementCount > Settings.MaxNumberOfElementsPerCard)
                 throw new ArgumentException("Invalid number of elements.");
             elements = elementCount;
             this.shape = shape;
@@ -45,40 +74,32 @@ namespace Set_Game
             this.fill = fill;
             for(int i = 0; i < elementCount; i++)
             {
-                CardElement tmp = new CardElement(shape, color, fill);
-                addElement(tmp);
+                CardElement elem = new CardElement(shape, color, fill);
+                ElementGrid.Children.Add(elem);
             }
-            this.LayoutTransform = new ScaleTransform(0.5, 0.5);
-//            this.RenderTransform = new ScaleTransform(0.5, 0.5);
+            this.LayoutTransform = new ScaleTransform(Settings.GameCardSizeFactor, Settings.GameCardSizeFactor);
         }
 
-        public void addElement(CardElement elem) {
-            ElementGrid.Children.Add(elem);
-        }
 
-        private bool highlighted = false;
-        public bool Highlighted { 
-            get { return highlighted; }
-            set { toggleHighlight(); }
-        }
-
+        /// <summary>
+        /// Toggles the highlighting-state of the GameCard.
+        /// </summary>
         public void toggleHighlight(){
             if (disappearing)
                 return;
             highlighted = !highlighted;
             if (!highlighted)
             {
-                CardRectangle.Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x33, 0x33, 0x33));
+                CardRectangle.Fill = new SolidColorBrush(Settings.GameCardBackgroundColor);
                 RenderTransform = new RotateTransform(0);
                 controller.removeHighlighting();
             }
             else
             {
-                CardRectangle.Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x66, 0x66, 0x66));
+                CardRectangle.Fill = new SolidColorBrush(Settings.GameCardHighlightColor);
                 RenderTransform = new RotateTransform(10);
                 controller.addHighlighting();
             }
-
         }
 
         /// <summary>
@@ -86,25 +107,17 @@ namespace Set_Game
         /// https://stackoverflow.com/questions/24184584/coloranimation-change-color-in-rectangle
         /// </summary>
         public void helpHighlight() {
-            //CardRectangle.Fill = new SolidColorBrush(Colors.Black);
-            //var storyboard = new Storyboard();
-            //var colorFadeAnimation = new ColorAnimation(Colors.Black, new Duration(TimeSpan.FromSeconds(5)));
-            //Storyboard.SetTarget(colorFadeAnimation, fillBrush);
-            //Storyboard.SetTargetProperty(colorFadeAnimation, new PropertyPath(SolidColorBrush.ColorProperty));
-            //storyboard.Children.Add(colorFadeAnimation);
-            //var colorFadeBackAnimation = new ColorAnimation(Color.FromArgb(255, 0x33, 0x33, 0x33), new Duration(TimeSpan.FromSeconds(5)));
-            //Storyboard.SetTarget(colorFadeBackAnimation, fillBrush);
-            //Storyboard.SetTargetProperty(colorFadeBackAnimation, new PropertyPath(SolidColorBrush.ColorProperty));
-            //storyboard.Children.Add(colorFadeBackAnimation);
-            //this.BeginStoryboard(storyboard);
+            if (disappearing)
+                return;
+            Color startingColor = highlighted ? Settings.GameCardHighlightColor : Settings.GameCardBackgroundColor;
             CardRectangle.Fill = new SolidColorBrush(Colors.Black);
             var storyboard = new Storyboard();
             var colorFadeAnimation = new ColorAnimation(Color.FromArgb(255,0,0,0), new Duration(TimeSpan.FromSeconds(1)));
-            colorFadeAnimation.From = Color.FromArgb(255, 51, 51, 51);
+            colorFadeAnimation.From = startingColor;
             Storyboard.SetTarget(colorFadeAnimation, CardRectangle);
             Storyboard.SetTargetProperty(colorFadeAnimation, new PropertyPath("Fill.Color"));
             storyboard.Children.Add(colorFadeAnimation);
-            var colorFadeBackAnimation = new ColorAnimation(Color.FromArgb(255, 0x33, 0x33, 0x33), new Duration(TimeSpan.FromSeconds(2)));
+            var colorFadeBackAnimation = new ColorAnimation(startingColor, new Duration(TimeSpan.FromSeconds(2)));
             Storyboard.SetTarget(colorFadeBackAnimation, CardRectangle);
             Storyboard.SetTargetProperty(colorFadeBackAnimation, new PropertyPath("Fill.Color"));
             colorFadeBackAnimation.BeginTime = TimeSpan.FromSeconds(2);
@@ -112,10 +125,15 @@ namespace Set_Game
             this.BeginStoryboard(storyboard);
         }
 
+        /// <summary>
+        /// Triggers the disappearing animation of the GameCard.
+        /// </summary>
         public void disappear() {
             disappearing = true;
             Storyboard storyboard = new Storyboard();
-            ColorAnimation disappearAnimation = new ColorAnimation(Color.FromArgb(0,102,102,102), new Duration(TimeSpan.FromSeconds(1)));
+            Color startingColor = highlighted ? Settings.GameCardHighlightColor : Settings.GameCardBackgroundColor;
+            startingColor.A = 0;
+            ColorAnimation disappearAnimation = new ColorAnimation(startingColor, new Duration(TimeSpan.FromSeconds(1)));
             Storyboard.SetTarget(disappearAnimation, CardRectangle);
             Storyboard.SetTargetProperty(disappearAnimation, new PropertyPath("Fill.Color"));
             storyboard.Children.Add(disappearAnimation);
@@ -124,17 +142,21 @@ namespace Set_Game
 
         }
 
+        /// <summary>
+        /// Handles the event when the disappearing animation is completed.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void disappearCompleted(object sender, EventArgs e)
         {
             controller.removeCardFromTable(this);
         }
 
-
-        public GameCard()
-        {
-            InitializeComponent();
-        }
-
+        /// <summary>
+        /// Toggles the highlighting-state of the GameCard.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void UserControl_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             toggleHighlight();

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Media;
 
 namespace Set_Game
 {
@@ -25,7 +26,6 @@ namespace Set_Game
         public int CardsInDeck { get { return deck.Count; } }
         private bool helpRequested = false;
 
-
         public Controller(MainWindow mainWindow)
         {
             this.mainWindow = mainWindow;
@@ -44,9 +44,11 @@ namespace Set_Game
             scoreBinding.StringFormat = "Punkte: {0}"; 
             mainWindow.ScoreTextBlock.SetBinding(TextBlock.TextProperty, scoreBinding);
             // table binding
-            Binding tableBinding = new Binding("Table");
-            tableBinding.Source = this;
-            tableBinding.Mode = BindingMode.OneWay;
+            //Binding tableBinding = new Binding("Table");
+            //tableBinding.Source = this;
+            //tableBinding.Mode = BindingMode.OneWay;
+            
+            
             //mainWindow.gameArea.SetBinding()
 
             initGame();
@@ -74,7 +76,7 @@ namespace Set_Game
                     foundSet();
                 else
                 {
-                    foreach (var card in table.Where(card => card.Highlighted))
+                    foreach (var card in Table.Where(card => card.Highlighted))
                     {
                         card.toggleHighlight();
                     }
@@ -102,7 +104,7 @@ namespace Set_Game
             }
             helpRequested = false;
             //List<int> toRemoveIndizes = new List<int>();
-            foreach (var card in table.Where(card => card.Highlighted))
+            foreach (var card in Table.Where(card => card.Highlighted))
             {
                 card.disappear();
             }
@@ -110,9 +112,11 @@ namespace Set_Game
 
         internal void removeCardFromTable(GameCard card)
         {
+#warning replace gameArea actions with Data Binding
             mainWindow.gameArea.Children.Remove(card);
-            table.Remove(card);
-            drawRandomCard();
+            Table.Remove(card);
+            if(Table.Count < 12)
+                drawRandomCard();
         }
 
         /// <summary>
@@ -146,9 +150,9 @@ namespace Set_Game
         /// <param name="helpRequested">If true, it highlights the found set.</param>
         /// <returns>Returns true if a set can be found, false if none is available.</returns>
         private bool checkAvailableSet(bool helpRequested) {
-            foreach(var card1 in table)
-                foreach(var card2 in table.Where(card => !card.Equals(card1)))
-                    foreach (var card3 in table.Where(card => !card.Equals(card1) && !card.Equals(card2)))
+            foreach(var card1 in Table)
+                foreach(var card2 in Table.Where(card => !card.Equals(card1)))
+                    foreach (var card3 in Table.Where(card => !card.Equals(card1) && !card.Equals(card2)))
                     {
                         List<GameCard> set = new List<GameCard>();
                         set.Add(card1);
@@ -175,19 +179,21 @@ namespace Set_Game
         /// <returns>True if set found, false if invalid combination.</returns>
         private bool checkHighlightedSet()
         {
-            List<GameCard> set = table.Where(card => card.Highlighted).ToList();
+            List<GameCard> set = Table.Where(card => card.Highlighted).ToList();
             return checkSet(set);
         }
 
         /// <summary>
         /// Places 12 random cards from the full deck on the table.
         /// </summary>
-        private void initGame()
+        internal void initGame()
         {
-            //score = 0;
             SetScore(0);
             highlightedCards = 0;
             initDeck();
+            Table.Clear();
+#warning replace gameArea actions with Data Binding
+            mainWindow.gameArea.Children.Clear();
             NotifyPropertyChanged("CardsInDeck");
 
             for (int i = 0; i < 12; i++)
@@ -201,6 +207,7 @@ namespace Set_Game
         /// </summary>
         private void drawRandomCard()
         {
+            helpRequested = false;
             if (deck.Count <= 0)
                 return;
             int index = random.Next(deck.Count);
@@ -212,7 +219,9 @@ namespace Set_Game
         /// </summary>
         /// <param name="card">The card to move from deck to table.</param>
         private void addToTable(GameCard card) {
-            table.Add(card);
+            Table.Add(card);
+            NotifyPropertyChanged("Table");
+#warning replace gameArea actions with Data Binding
             mainWindow.gameArea.Children.Add(card);
             deck.Remove(card);
             NotifyPropertyChanged("CardsInDeck");
@@ -222,31 +231,15 @@ namespace Set_Game
         /// Initializes the deck of 81 cards with all different combinations of attributes.
         /// </summary>
         private void initDeck() {
+            deck.Clear();
             foreach (ElementShape shape in Enum.GetValues(typeof(ElementShape)))
                 foreach (ElementFill fill in Enum.GetValues(typeof(ElementFill)))
-                    foreach (ElementColor color in Enum.GetValues(typeof(ElementColor)))
-                        for (int i = 1; i < 4; i++)
+                    foreach (Color color in Settings.elementColors)
+                        for (int i = 1; i <= Settings.MaxNumberOfElementsPerCard; i++)
                         {
                             deck.Add(new GameCard(this, i, shape, color, fill));
                         }
         } // end initDeck
-
-
-        internal void logTable()
-        {
-            string path = "C:/table.log";
-            if (!File.Exists(path))
-                File.Create(path);
-            using (StreamWriter stream = new StreamWriter(path))
-            {
-                int i = 0;
-                foreach (var card in table)
-                {
-                    stream.WriteLine("card({0}, {1}, {2}, {3}, {4}).", i, card.Elements, card.ElemColor, card.Shape, card.Fill);
-                    i++;
-                }
-            }
-        }
 
         /// <summary>
         /// Shows an available set if there is one.
@@ -270,7 +263,13 @@ namespace Set_Game
                 if (!helpRequested){
                     alterScore(1);
                 }
-                drawRandomCard();
+                if (CardsInDeck > 0)
+                    drawRandomCard();
+                else
+                {
+                    foreach (var card in Table)
+                        card.disappear();
+                }
             }
             else
             {
@@ -280,8 +279,6 @@ namespace Set_Game
         }
 
         // This method is called by the Set accessor of each property.
-        // The CallerMemberName attribute that is applied to the optional propertyName
-        // parameter causes the property name of the caller to be substituted as an argument.
         private void NotifyPropertyChanged(String propertyName)
         {
             if (PropertyChanged != null)
