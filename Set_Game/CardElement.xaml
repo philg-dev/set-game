@@ -6,7 +6,7 @@
              mc:Ignorable="d" 
              d:DesignHeight="80" d:DesignWidth="140">
     <Border Padding="5">
-        <Grid>
+        <Grid Name="elementGrid">
             <Polygon Name="Polygon" Points="0,35 85,0 55,30 135,35 45,70 75,40"
             Stroke="Black" StrokeThickness="2"
             Fill="Yellow"/>

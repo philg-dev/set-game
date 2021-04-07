@@ -9,6 +9,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
@@ -35,11 +36,11 @@ namespace Set_Game
         /// The color of the GameCard's CardElements.
         /// </summary>
         public Color ElemColor { get { return color; } }
-        private ElementFill fill;
+        private ElementBrushType brushType;
         /// <summary>
         /// The fill-type of the GameCard's CardElements.
         /// </summary>
-        public ElementFill Fill { get { return fill; } }
+        public ElementBrushType BrushType { get { return brushType; } }
         /// <summary>
         /// Indicates whether the GameCard is in the state of disappearing.
         /// </summary>
@@ -54,6 +55,8 @@ namespace Set_Game
         /// </summary>
         private Controller controller;
 
+        private DropShadowEffect dropShadow = new DropShadowEffect();
+
         /// <summary>
         /// Creates a new GameCard object.
         /// </summary>
@@ -61,9 +64,15 @@ namespace Set_Game
         /// <param name="elementCount">The amount of elements on the card.</param>
         /// <param name="shape">The shape-type of the card's elements.</param>
         /// <param name="color">The color of the card's elements.</param>
-        /// <param name="fill">The fill-type of the card's elements.</param>
-        public GameCard(Controller controller, int elementCount, ElementShape shape, Color color, ElementFill fill) {
+        /// <param name="brushType">The fill-type of the card's elements.</param>
+        public GameCard(Controller controller, int elementCount, ElementShape shape, Color color, ElementBrushType brushType)
+        {
             InitializeComponent();
+
+            dropShadow.BlurRadius = Settings.helpDropShadowBlurRadius;
+            dropShadow.Color = Settings.helpDropShadowColor;
+            dropShadow.ShadowDepth = Settings.helpDropShadowDepth;
+
             fillBrush.Color = Settings.GameCardBackgroundColor;
             this.controller = controller;
             if (elementCount < 1 || elementCount > Settings.MaxNumberOfElementsPerCard)
@@ -71,15 +80,19 @@ namespace Set_Game
             elements = elementCount;
             this.shape = shape;
             this.color = color;
-            this.fill = fill;
+            this.brushType = brushType;
             for(int i = 0; i < elementCount; i++)
             {
-                CardElement elem = new CardElement(shape, color, fill);
+                CardElement elem = new CardElement(shape, color, brushType);
                 ElementGrid.Children.Add(elem);
             }
             this.LayoutTransform = new ScaleTransform(Settings.GameCardSizeFactor, Settings.GameCardSizeFactor);
         }
 
+        public override string ToString()
+        {
+            return String.Format("{0}, {1}, {2}, {3}", Elements, ElemColor, Shape, BrushType);
+        }
 
         /// <summary>
         /// Toggles the highlighting-state of the GameCard.
@@ -107,6 +120,7 @@ namespace Set_Game
         /// https://stackoverflow.com/questions/24184584/coloranimation-change-color-in-rectangle
         /// </summary>
         public void helpHighlight() {
+            Effect = dropShadow;
             if (disappearing)
                 return;
             Color startingColor = highlighted ? Settings.GameCardHighlightColor : Settings.GameCardBackgroundColor;
@@ -122,7 +136,13 @@ namespace Set_Game
             Storyboard.SetTargetProperty(colorFadeBackAnimation, new PropertyPath("Fill.Color"));
             colorFadeBackAnimation.BeginTime = TimeSpan.FromSeconds(2);
             storyboard.Children.Add(colorFadeBackAnimation);
+            storyboard.Completed += helpCompleted;
             this.BeginStoryboard(storyboard);
+        }
+
+        private void helpCompleted(object sender, EventArgs e)
+        {
+            Effect = null;
         }
 
         /// <summary>
@@ -149,7 +169,7 @@ namespace Set_Game
         /// <param name="e"></param>
         private void disappearCompleted(object sender, EventArgs e)
         {
-            controller.removeCardFromTable(this);
+             controller.removeCardFromTable(this);
         }
 
         /// <summary>

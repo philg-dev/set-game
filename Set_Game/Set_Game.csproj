@@ -49,6 +49,8 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="ElementBrush.cs" />
+    <Compile Include="ElementShape.cs" />
     <Compile Include="Settings.cs" />
     <Page Include="CardElement.xaml">
       <SubType>Designer</SubType>

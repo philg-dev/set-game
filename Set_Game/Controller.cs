@@ -25,6 +25,10 @@ namespace Set_Game
         public int Score { get { return score; } }
         public int CardsInDeck { get { return deck.Count; } }
         private bool helpRequested = false;
+        /// <summary>
+        /// Counter that fills for every Card that completed it's disappearing animation. Once it reaches Settings.CardsPerSet refillTable will be triggered.
+        /// </summary>
+        private int disappearedCompleted = 0;
 
         public Controller(MainWindow mainWindow)
         {
@@ -54,11 +58,19 @@ namespace Set_Game
             initGame();
         }
 
+        /// <summary>
+        /// Sets the score to a specified value.
+        /// </summary>
+        /// <param name="newScore">The new score.</param>
         public void SetScore(int newScore) {
             score = newScore;
             NotifyPropertyChanged("Score");
         }
 
+        /// <summary>
+        /// Changes the score.
+        /// </summary>
+        /// <param name="diff">Difference added to current score. Negative values will decrease the score.</param>
         public void alterScore(int diff) {
             score += diff;
             NotifyPropertyChanged("Score");
@@ -70,7 +82,7 @@ namespace Set_Game
         public void addHighlighting()
         {
             highlightedCards++;
-            if (highlightedCards == 3)
+            if (highlightedCards == Settings.CardsPerSet)
             {
                 if (checkHighlightedSet())
                     foundSet();
@@ -108,15 +120,36 @@ namespace Set_Game
             {
                 card.disappear();
             }
+            //refillTable();
         }
 
+        /// <summary>
+        /// Refills the table until Settings.DefaultCardsOnTable is reached or a valid set becomes available, if the option is active.
+        /// </summary>
+        internal void refillTable() 
+        {
+            while (deck.Count > 0 && 
+                    (Table.Count < Settings.DefaultCardsOnTable
+                    || (Settings.drawUntilSetAvailable
+                    && !checkAvailableSet()))) // draw until set available if the option is active
+                drawRandomCard();
+        }
+
+        /// <summary>
+        /// Removes a disappeared card from the Table.
+        /// </summary>
+        /// <param name="card">The Card to remove.</param>
         internal void removeCardFromTable(GameCard card)
         {
 #warning replace gameArea actions with Data Binding
+            disappearedCompleted++;
             mainWindow.gameArea.Children.Remove(card);
             Table.Remove(card);
-            if(Table.Count < 12)
-                drawRandomCard();
+            if (disappearedCompleted == Settings.CardsPerSet)
+            {
+                disappearedCompleted = 0;
+                refillTable();
+            }
         }
 
         /// <summary>
@@ -133,7 +166,7 @@ namespace Set_Game
             return (set.GroupBy(card => card.Elements).All(card => card.Count() == 1 || card.Count() == set.Count)
                 && set.GroupBy(card => card.Shape).All(card => card.Count() == 1 || card.Count() == set.Count)
                 && set.GroupBy(card => card.ElemColor).All(card => card.Count() == 1 || card.Count() == set.Count)
-                && set.GroupBy(card => card.Fill).All(card => card.Count() == 1 || card.Count() == set.Count));
+                && set.GroupBy(card => card.BrushType).All(card => card.Count() == 1 || card.Count() == set.Count));
         }
 
         /// <summary>
@@ -150,26 +183,43 @@ namespace Set_Game
         /// <param name="helpRequested">If true, it highlights the found set.</param>
         /// <returns>Returns true if a set can be found, false if none is available.</returns>
         private bool checkAvailableSet(bool helpRequested) {
-            foreach(var card1 in Table)
-                foreach(var card2 in Table.Where(card => !card.Equals(card1)))
-                    foreach (var card3 in Table.Where(card => !card.Equals(card1) && !card.Equals(card2)))
+            return checkAvailableSet(helpRequested, new List<GameCard>());
+        }
+
+        /// <summary>
+        /// Recursively checks if the Table contains a valid set.
+        /// </summary>
+        /// <param name="helpRequested">Indicates whether help was requested or not. If so, a highlighting is triggered.</param>
+        /// <param name="setAccumulator">The cards of the current potential set, built up recursively.</param>
+        /// <returns></returns>
+        private bool checkAvailableSet(bool helpRequested, List<GameCard> setAccumulator)
+        {
+            if(setAccumulator.Count == Settings.CardsPerSet)
+            {
+                if (checkSet(setAccumulator))
+                {
+                    if (helpRequested)
                     {
-                        List<GameCard> set = new List<GameCard>();
-                        set.Add(card1);
-                        set.Add(card2);
-                        set.Add(card3);
-                        if (checkSet(set))
+                        foreach (var setCard in setAccumulator)
                         {
-                            if (helpRequested)
-                            {
-                                foreach (var setCard in set)
-                                {
-                                    setCard.helpHighlight();
-                                }
-                            }
-                            return true;
+                            setCard.helpHighlight();
                         }
                     }
+                    return true;
+                }
+                else
+                    return false;
+            }
+            // if setAccumulator is empty take indexes > -1, else take indexes > setAccumulator's last card's index for sorted combinations to avoid duplicate checks
+            foreach (var card in Table.Where(c => Table.IndexOf(c) > (setAccumulator.Count>0 ? Table.IndexOf(setAccumulator.Last()) : -1)))
+            {
+                setAccumulator.Add(card);
+                if (checkAvailableSet(helpRequested, setAccumulator))
+                    return true;
+                else
+                    setAccumulator.Remove(setAccumulator.Last());
+            }
+
             return false;
         }
 
@@ -184,22 +234,21 @@ namespace Set_Game
         }
 
         /// <summary>
-        /// Places 12 random cards from the full deck on the table.
+        /// Places Settings.DefaultCardsOnTable random cards from the full deck on the table.
         /// </summary>
         internal void initGame()
         {
             SetScore(0);
             highlightedCards = 0;
+            disappearedCompleted = 0;
             initDeck();
             Table.Clear();
 #warning replace gameArea actions with Data Binding
             mainWindow.gameArea.Children.Clear();
             NotifyPropertyChanged("CardsInDeck");
 
-            for (int i = 0; i < 12; i++)
-            {
-                drawRandomCard();
-            }
+            refillTable();
+
         }
 
         /// <summary>
@@ -232,13 +281,28 @@ namespace Set_Game
         /// </summary>
         private void initDeck() {
             deck.Clear();
-            foreach (ElementShape shape in Enum.GetValues(typeof(ElementShape)))
-                foreach (ElementFill fill in Enum.GetValues(typeof(ElementFill)))
-                    foreach (Color color in Settings.elementColors)
-                        for (int i = 1; i <= Settings.MaxNumberOfElementsPerCard; i++)
-                        {
-                            deck.Add(new GameCard(this, i, shape, color, fill));
-                        }
+            int brushTypeCounter = 0;
+            for (int shapeIndex = 0; shapeIndex < Settings.CardsPerSet; shapeIndex++)
+                for (int colorIndex = 0; colorIndex < Settings.CardsPerSet; colorIndex++)
+                {
+                    brushTypeCounter = 0;
+                    foreach (ElementBrushType brushType in Enum.GetValues(typeof(ElementBrushType)))
+                    {
+                        brushTypeCounter++;
+                        if (brushTypeCounter > Settings.CardsPerSet)
+                            break;
+                        for (int elementCount = 1; elementCount <= Settings.CardsPerSet; elementCount++)
+                            deck.Add(new GameCard(this, elementCount, ElementShape.elemShapes[shapeIndex], Settings.elementColors[colorIndex], brushType));
+                    }
+                }
+
+            //foreach (ElementShape shape in ElementShape.elemShapes)
+            //    foreach (ElementBrushType brushType in Enum.GetValues(typeof(ElementBrushType)))
+            //        foreach (Color color in Settings.elementColors)
+            //            for (int i = 1; i <= Settings.MaxNumberOfElementsPerCard; i++)
+            //            {
+            //                deck.Add(new GameCard(this, i, shape, color, brushType));
+            //            }
         } // end initDeck
 
         /// <summary>
@@ -267,6 +331,7 @@ namespace Set_Game
                     drawRandomCard();
                 else
                 {
+                    // game ended
                     foreach (var card in Table)
                         card.disappear();
                 }
